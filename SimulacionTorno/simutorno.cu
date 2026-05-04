@@ -162,7 +162,7 @@ __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int paso
 
     tornoKernel<<<grid, block>>>(d_Y, d_Z, d_Result, pasossim, total, incA_rad);
 
-	cudaThreadSynchronize();
+	cudaDeviceSynchronize();
     ERROR_CHECK
 
 	// Copiamos el resultado de vuelta a la CPU
