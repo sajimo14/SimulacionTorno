@@ -24,9 +24,6 @@
   <ItemGroup>
     <ClInclude Include="simutorno.h" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="simutorno.cu" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{18704674-6804-4CC5-8A58-F07D9B48BD72}</ProjectGuid>
     <RootNamespace>SimulacionTorno</RootNamespace>

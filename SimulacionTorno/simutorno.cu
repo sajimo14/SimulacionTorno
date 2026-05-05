@@ -94,6 +94,8 @@ __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int paso
 		double AvanceMin = 1e10;
 		double angle_rad = 0.0;
 
+		double s, c; //variables temporales para el seno y el coseno
+
 		for (int i = 0; i < pasossim; i++)  /* Giro del torno en el eje X */
 		{
 			// Se rota el punto actual (solo nos interesa la coordenada y)
@@ -103,8 +105,9 @@ __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int paso
 			// Al ser un valor constante para toda la simulación, evitamos que los miles de 
 			// hilos de la GPU repitan esta misma multiplicación trigonométrica en cada 
 			// iteración del bucle, ahorrando millones de ciclos de reloj innecesarios.
+			sincos(angle_rad, &s, &c);
+			double py = y * c - z * s;
 
-			double py = y * cos(angle_rad) - z * sin(angle_rad);
 			// Calcula la distancia al origen del punto transformado 
 			// Si y es la menor se almacena
 			if (py<AvanceMin)
