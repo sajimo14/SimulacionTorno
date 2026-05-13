@@ -160,7 +160,7 @@ __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int paso
 
 	// lanzamos el kernel
 
-	dim3 block(256);
+	dim3 block(32); //MEJOR VERSION TRAS COMPROBAR dim3 block con 16,32,64,128,256,512,1024
     dim3 grid((total + block.x - 1) / block.x);
 
     tornoKernel<<<grid, block>>>(d_Y, d_Z, d_Result, pasossim, total, incA_rad);
