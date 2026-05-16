@@ -71,11 +71,33 @@ return OKSIM;
 // ---------------------------------------------------------------
 // ---------------------------------------------------------------
 
+// ---------------------------------------------------------------
+// ---------------------------------------------------------------
+// FUNCION A IMPLEMENTAR POR EL GRUPO (paralelización de la anterior)
+// ---------------------------------------------------------------
+// ---------------------------------------------------------------
+
 __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int pasossim, int total, double incA_rad){
-	
+
+	// Reservamos memoria compartida para los puntos del bloque
+	// Es memoria dentro del propio SM, mucho más rápida que la global
+	__shared__ double sh_Y[64];
+	__shared__ double sh_Z[64];
+
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (idx < total) {
+	// Calculamos cuántos hilos hay en total para el stride
+	int stride = gridDim.x * blockDim.x;
+
+	for (int p = idx; p < total; p += stride)
+	{
+		// Cada hilo carga su dato desde memoria global a memoria compartida
+		sh_Y[threadIdx.x] = d_Y[p];
+		sh_Z[threadIdx.x] = d_Z[p];
+
+		// Esperamos a que todos los hilos del bloque hayan cargado sus datos
+		// Sin esto podríamos leer basura si algún hilo va más lento
+		__syncthreads();
 
 		// PARA AÑADIR EN LA MEMORIA : 
 		// [OPTIMIZACIÓN DE MEMORIA] Uso de Registros vs. Memoria Global.
@@ -84,13 +106,13 @@ __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int paso
 		// forzamos al compilador a guardarlas en los registros ultra-rápidos del procesador. 
 		// Así, los cálculos dentro del 'for' se ejecutan a máxima velocidad.
 
-		double y = d_Y[idx];
-		double z = d_Z[idx];
+		// Leemos desde shared memory en lugar de desde memoria global
+		double y = sh_Y[threadIdx.x];
+		double z = sh_Z[threadIdx.x];
 
 		// Inicializamos el mínimo con un valor arbitrariamente alto ("falso infinito" = 1e10).
 		// Esto garantiza que en la primera iteración del bucle, el primer valor 'py' calculado
 		// sobreescribirá esta variable, iniciando correctamente la búsqueda del valor mínimo real.
-
 		double AvanceMin = 1e10;
 		double angle_rad = 0.0;
 
@@ -103,31 +125,26 @@ __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int paso
 			// Al ser un valor constante para toda la simulación, evitamos que los miles de 
 			// hilos de la GPU repitan esta misma multiplicación trigonométrica en cada 
 			// iteración del bucle, ahorrando millones de ciclos de reloj innecesarios.
-
 			double py = y * cos(angle_rad) - z * sin(angle_rad);
+
 			// Calcula la distancia al origen del punto transformado 
 			// Si y es la menor se almacena
-			if (py<AvanceMin)
+			if (py < AvanceMin)
 			{
 				AvanceMin = py; 
 			}
 			angle_rad += incA_rad;
 		}
 
-		d_Result[idx] = AvanceMin;
+		d_Result[p] = AvanceMin;
 	}
-
-
-
-
 }
- int SimulacionTornoGPU(int pasossim, int vtotal, int utotal)
-{
 
+int SimulacionTornoGPU(int pasossim, int vtotal, int utotal)
+{
 	int total = vtotal * utotal;
 
 	// Lo primero que hacemos es aplanar la malla ( el buffer no es continuo en la memoria )
-
 	double* h_Y = (double*)malloc(total*sizeof(double));
 	double* h_Z = (double*)malloc(total*sizeof(double));
 
@@ -140,46 +157,43 @@ __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int paso
 	}
 
 	// Reservamos memoria en la GPU para los buffers de entrada y salida
-
 	double* d_Y;
-    double* d_Z;
-    double* d_Result;
-    cudaMalloc((void**)&d_Y,      total * sizeof(double));
-    cudaMalloc((void**)&d_Z,      total * sizeof(double));
-    cudaMalloc((void**)&d_Result, total * sizeof(double));
+	double* d_Z;
+	double* d_Result;
+	cudaMalloc((void**)&d_Y,      total * sizeof(double));
+	cudaMalloc((void**)&d_Z,      total * sizeof(double));
+	cudaMalloc((void**)&d_Result, total * sizeof(double));
 
 	// Copiamos los datos de entrada a la GPU
-
 	cudaMemcpy(d_Y, h_Y, total * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_Z, h_Z, total * sizeof(double), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_Z, h_Z, total * sizeof(double), cudaMemcpyHostToDevice);
 
 	double incA_rad = (360.0 / (double)PuntosVueltaHelicoide) * M_PI_180;
 
 	// lanzamos el kernel
-
 	// Sabemos por cudaGetDeviceProperties que tenemos 22 SMs y 16 bloques máx por SM
 	// Lanzamos exactamente eso para ocupar la GPU al 100%
+	// El tamaño de bloque es 64 porque 1024 threads/SM / 16 bloques/SM = 64 threads/bloque
 	dim3 block(64);
 	dim3 grid(22 * 16);
 	tornoKernel<<<grid, block>>>(d_Y, d_Z, d_Result, pasossim, total, incA_rad);
 
-	cudaThreadSynchronize();
-    ERROR_CHECK
+	cudaDeviceSynchronize();
+	ERROR_CHECK
 
 	// Copiamos el resultado de vuelta a la CPU
-
 	cudaMemcpy(GPUBufferMenorY, d_Result, total * sizeof(double), cudaMemcpyDeviceToHost);
 
 	// Liberamos la memoria de la GPU y CPU
-
 	cudaFree(d_Y);
-    cudaFree(d_Z);
-    cudaFree(d_Result);
-    free(h_Y);
-    free(h_Z);
+	cudaFree(d_Z);
+	cudaFree(d_Result);
+	free(h_Y);
+	free(h_Z);
 
 	return OKSIM;
 }
+
  // ---------------------------------------------------------------
  // ---------------------------------------------------------------
  // ---------------------------------------------------------------
