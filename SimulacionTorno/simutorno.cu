@@ -157,10 +157,11 @@ __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int paso
 
 	// lanzamos el kernel
 
-	dim3 block(256);
-    dim3 grid((total + block.x - 1) / block.x);
-
-    tornoKernel<<<grid, block>>>(d_Y, d_Z, d_Result, pasossim, total, incA_rad);
+	// Sabemos por cudaGetDeviceProperties que tenemos 22 SMs y 16 bloques máx por SM
+	// Lanzamos exactamente eso para ocupar la GPU al 100%
+	dim3 block(64);
+	dim3 grid(22 * 16);
+	tornoKernel<<<grid, block>>>(d_Y, d_Z, d_Result, pasossim, total, incA_rad);
 
 	cudaThreadSynchronize();
     ERROR_CHECK
