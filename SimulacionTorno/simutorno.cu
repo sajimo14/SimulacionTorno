@@ -163,8 +163,8 @@ __global__ void tornoKernel(double* d_Y, double* d_Z, double* d_Result, int paso
 	dim3 grid(22 * 16);
 	tornoKernel<<<grid, block>>>(d_Y, d_Z, d_Result, pasossim, total, incA_rad);
 
-	cudaThreadSynchronize();
-    ERROR_CHECK
+	cudaDeviceSynchronize();
+	ERROR_CHECK;
 
 	// Copiamos el resultado de vuelta a la CPU
 
