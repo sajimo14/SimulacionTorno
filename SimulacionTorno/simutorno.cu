@@ -255,7 +255,7 @@ runTest(int argc, char** argv)
 	int comprobar = OKSIM;
 	for (int i = 0; i<S.UPoints*S.VPoints; i++)
 	{
-		if (fabs(CPUBufferMenorY[i]-GPUBufferMenorY[i])<1e-6)
+		if (fabs(CPUBufferMenorY[i]-GPUBufferMenorY[i])>1e-6)
 		{
 			comprobar = ERRORSIM;
 			fprintf(stderr, "Fallo en paso %d de simulación, valor correcto Y=%lf\n", i, CPUBufferMenorY[i]);
